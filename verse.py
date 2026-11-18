@@ -6,6 +6,7 @@ API docs: https://alquran.cloud/api
 """
 
 import random
+import sys
 
 import requests
 
@@ -33,10 +34,29 @@ def choose_language():
 
 
 def get_verse(ayah_number, translation_edition):
-    """Fetch one verse in Arabic + the chosen translation."""
+    """Fetch one verse in Arabic + the chosen translation.
+
+    Returns a list of two ayah dictionaries, or None if something went wrong.
+    """
     url = f"{BASE_URL}/ayah/{ayah_number}/editions/{ARABIC_EDITION},{translation_edition}"
-    response = requests.get(url, timeout=10)
+    try:
+        response = requests.get(url, timeout=10)
+    except requests.exceptions.Timeout:
+        print("Error: the API took too long to answer. Try again later.")
+        return None
+    except requests.exceptions.ConnectionError:
+        print("Error: could not connect. Check your internet connection.")
+        return None
+
+    if response.status_code != 200:
+        print(f"Error: the API returned status code {response.status_code}.")
+        return None
+
     data = response.json()
+    if data.get("code") != 200 or "data" not in data:
+        print("Error: unexpected answer from the API.")
+        return None
+
     return data["data"]
 
 
@@ -60,6 +80,8 @@ def main():
     language_name, edition = choose_language()
     ayah_number = random.randint(1, TOTAL_AYAHS)
     verses = get_verse(ayah_number, edition)
+    if verses is None:
+        sys.exit(1)
     arabic, translation = verses[0], verses[1]
     show_verse(arabic, translation, language_name)
 
